@@ -80,7 +80,6 @@ static bool mul_overflows(int64_t a, int64_t b, int64_t & result) {
 #define LEHMER_GCD
 #endif
 
-
 template<bool SYNCH>
 mpz_manager<SYNCH>::mpz_manager():
     m_allocator("mpz_manager") {

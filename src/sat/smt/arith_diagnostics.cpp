@@ -190,7 +190,7 @@ namespace arith {
         family_id fid = m.get_family_id("arith");
         arith_util arith(m);
         solver& a = dynamic_cast<solver&>(*s.fid2solver(fid));
-        char const* name;
+        char const* name = nullptr;
         expr_ref_vector args(m);
 
         switch (m_ty) {
@@ -210,8 +210,7 @@ namespace arith {
             name = "nla";
             break;
         default:
-            name = "unknown-arithmetic";
-            break;
+            UNREACHABLE();
         }
 
         auto push_eq = [&](bool is_eq, enode* x, enode* y) {

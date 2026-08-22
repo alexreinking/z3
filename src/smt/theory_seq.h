@@ -319,6 +319,13 @@ namespace smt {
             unsigned m_propagate_contains;
             unsigned m_int_string;
             unsigned m_ubv_string;
+            unsigned m_regex_monadic_checks;
+            unsigned m_regex_monadic_sat;
+            unsigned m_regex_monadic_unsat;
+            unsigned m_regex_monadic_undef;
+            unsigned m_regex_monadic_assumptions;
+            unsigned m_regex_monadic_fallbacks;
+            unsigned m_regex_eq_approx_unsat;
         };
         typedef hashtable<rational, rational::hash_proc, rational::eq_proc> rational_set;
 
@@ -519,6 +526,7 @@ namespace smt {
         bool propagate_eq(dependency* dep, literal lit, expr* e1, expr* e2, bool add_to_eqs = true);
         void set_conflict(dependency* dep, literal_vector const& lits = literal_vector());
         void set_conflict(enode_pair_vector const& eqs, literal_vector const& lits);
+        void conflict_or_axiom(literal_vector& lits, dependency* dep);
 
         // self-validation
         void validate_axiom(literal_vector const& lits);
@@ -632,6 +640,7 @@ namespace smt {
         app* mk_value(expr* a);
 
         trail_stack& get_trail_stack() { return m_trail_stack; }
+        bool use_monadic_regex() const { return get_fparams().m_seq_regex_monadic; }
         void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2) {}
         void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) { }
         void unmerge_eh(theory_var v1, theory_var v2) {}
@@ -643,5 +652,4 @@ namespace smt {
         bool  get_length(expr* e, rational& r) override;
     };
 }
-
 

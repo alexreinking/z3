@@ -19,6 +19,7 @@ Notes:
 --*/
 
 #include <typeinfo>
+#include <numeric>
 #include "smt/theory_pb.h"
 #include "smt/smt_context.h"
 #include "smt/smt_kernel.h"
@@ -1644,8 +1645,6 @@ namespace smt {
             }            
             break;
         }
-        default:
-            break;
         }
         return result;
     }
@@ -1941,8 +1940,6 @@ namespace smt {
                 
                 break;
             }
-            default:
-                UNREACHABLE();
             }            
             m_bound += offset * bound;
 
@@ -2116,6 +2113,7 @@ namespace smt {
             switch(ctx.get_assignment(c.lit(i))) {
             case l_true:
                 ++sum;
+                Z3_fallthrough;
             case l_undef:
                 ++maxsum;
                 break;
@@ -2147,6 +2145,7 @@ namespace smt {
             switch(ctx.get_assignment(c.lit(i))) {
             case l_true:
                 sum += c.coeff(i);
+                Z3_fallthrough;
             case l_undef:
                 maxsum += c.coeff(i);
                 break;

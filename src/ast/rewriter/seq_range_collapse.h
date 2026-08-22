@@ -26,9 +26,18 @@ Authors:
 #pragma once
 
 #include "ast/rewriter/seq_range_predicate.h"
+#include "ast/rewriter/seq_rewriter.h"
 #include "ast/seq_decl_plugin.h"
 
 namespace seq {
+
+    /**
+     * Convert a Boolean guard over the single character variable v0 = (:var 0) -- a
+     * derivative cofactor path condition -- into the range_predicate of the characters
+     * satisfying it.  Recognizes {true, false, =, char.<=, and, or, not} over v0 and
+     * concrete characters; returns false (out untouched) on anything else.
+     */
+    bool guard_to_range_predicate(seq_util& u, expr* v0, expr* guard, range_predicate& out);
 
     /**
      * If r is a boolean combination of character-class regex primitives
@@ -67,5 +76,19 @@ namespace seq {
      *                              held by range_predicate).
      */
     expr_ref range_predicate_to_regex(seq_util& u, range_predicate const& p, sort* seq_sort);
+
+    /**
+    * Unfolds and then folds the given regex expression.
+    * Unfolding, produces the symbolic derivative which is an expression with a free variable var 0
+    * of the character sort.
+     * Folding produces a regex expression that is equivalent to the original one.
+     * It is obtained by taking the cofactors of the unfold, and producing a range predicate
+     * from the conditions with var 0.
+     * Formally:
+     * cofactors F_i[var 0], r_i            <- unfold(r)
+     * of_pred(\lambda ch . F_i[ch]) . r_i  <- fold(F_i[var 0], r_i)
+     * union_i of_pred(\ ch. F_i[ch]) . r_i <- fold(unfold(r))
+    */
+    expr_ref unfold_fold(seq_rewriter &rw, expr *r);
 
 }

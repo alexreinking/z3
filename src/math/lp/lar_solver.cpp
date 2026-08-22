@@ -644,7 +644,6 @@ namespace lp {
                for (auto c : cs) 
                     m_imp->m_constraints.display(tout, c) << "\n";
             });
-            SASSERT(bound_dep != nullptr);
             dep = dep_manager().mk_join(dep, bound_dep);
         }
         return dep;
@@ -801,8 +800,6 @@ namespace lp {
                 return true;
             }
             return false;
-        default:
-            SASSERT(false);
         }
         return false;
     }
@@ -1337,15 +1334,9 @@ namespace lp {
     bool lar_solver::all_constraints_hold() const {
         if (m_imp->m_settings.get_cancel_flag())
             return true;
-        std::unordered_map<lpvar, mpq> var_map;
-        // Compute the strict-bounds delta once per model: it flattens both the
-        // model (var_map) and the eps component of any delta-rational bound in
-        // constraint_holds, so the two must use the very same value.
-        mpq delta = get_core_solver().find_delta_for_strict_bounds(m_imp->m_settings.m_epsilon);
-        get_model_do_not_care_about_diff_vars(var_map, delta);
 
         for (auto const& c : m_imp->m_constraints.active()) {
-            if (!constraint_holds(c, var_map, delta)) {
+            if (!constraint_holds(c)) {
                 TRACE(lar_solver,
                     m_imp->m_constraints.display(tout, c) << "\n";
                 for (auto p : c.coeffs()) {
@@ -1357,15 +1348,11 @@ namespace lp {
         return true;
     }
 
-    bool lar_solver::constraint_holds(const lar_base_constraint& constr, std::unordered_map<lpvar, mpq>& var_map, const mpq& delta) const {
-        mpq left_side_val = get_left_side_val(constr, var_map);
-        // Account for a delta-rational bound  rhs + eps*delta  (eps != 0 only for
-        // the bounds that validate strict optimization optima).  'delta' is the
-        // same strict-bounds delta that flattened var_map, so the comparison is
-        // exact over the reals.
-        mpq rhs = constr.rhs();
-        if (!constr.bound_eps().is_zero())
-            rhs += constr.bound_eps() * delta;
+    bool lar_solver::constraint_holds(const lar_base_constraint& constr) const {
+        impq left_side_val(constr.get_free_coeff_of_left_side());
+        for (auto& it : constr.coeffs())
+            left_side_val += it.first * get_core_solver().r_x(it.second);
+        impq rhs(constr.rhs(), constr.bound_eps());
         switch (constr.kind()) {
         case LE: return left_side_val <= rhs;
         case LT: return left_side_val < rhs;
@@ -1572,22 +1559,23 @@ namespace lp {
             return false;
 
         m_imp->m_delta = get_core_solver().find_delta_for_strict_bounds(m_imp->m_settings.m_epsilon);
-        unsigned j;
         unsigned n = get_core_solver().r_x().size();
+        // the set of distinct column values does not depend on m_delta, so collect it once
+        // and only rescan the distinct pairs when m_delta is halved
+        m_imp->m_set_of_different_pairs.clear();
+        for (unsigned j = 0; j < n; ++j)
+            m_imp->m_set_of_different_pairs.insert(get_core_solver().r_x(j));
+        bool collision;
         do {
-            m_imp->m_set_of_different_pairs.clear();
+            collision = false;
             m_imp->m_set_of_different_singles.clear();
-            for (j = 0; j < n; ++j) {
-                const numeric_pair<mpq>& rp = get_core_solver().r_x(j);
-                mpq x = rp.x + m_imp->m_delta * rp.y;
-                m_imp->m_set_of_different_pairs.insert(rp);
-                m_imp->m_set_of_different_singles.insert(x);
-                if (m_imp->m_set_of_different_pairs.size() != m_imp->m_set_of_different_singles.size()) {
-                    m_imp->m_delta /= mpq(2);
-                    break;
-                }
+            for (const numeric_pair<mpq>& rp : m_imp->m_set_of_different_pairs)
+                m_imp->m_set_of_different_singles.insert(rp.x + m_imp->m_delta * rp.y);
+            if (m_imp->m_set_of_different_singles.size() != m_imp->m_set_of_different_pairs.size()) {
+                m_imp->m_delta /= mpq(2);
+                collision = true;
             }
-        } while (j != n);
+        } while (collision);
         TRACE(lar_solver_model, tout << "delta = " << m_imp->m_delta << "\nmodel:\n";);
         return true;
     }
@@ -2479,6 +2467,7 @@ namespace lp {
             } 
             case GT:
                 y_of_bound += 1;
+                Z3_fallthrough;
             case GE: {
                 auto low = numeric_pair<mpq>(right_side.x, y_of_bound);
                 if (low < get_lower_bound(j)) {
@@ -2836,8 +2825,8 @@ namespace lp {
         m_imp->m_crossed_bounds_column = j;
         const auto& ul = m_imp->m_columns[j];
         u_dependency* bdep = lower_bound? ul.lower_bound_witness() : ul.upper_bound_witness();
-        SASSERT(bdep != nullptr);
         m_imp->m_crossed_bounds_deps = dep_manager().mk_join(bdep, dep);
+        SASSERT(m_imp->m_crossed_bounds_deps != nullptr);
         TRACE(dio, tout << "crossed_bound_deps:\n";  print_explanation(tout, flatten(m_imp->m_crossed_bounds_deps)) << "\n";);
     }
     const indexed_uint_set & lar_solver::touched_rows() const { return m_imp->m_touched_rows; }
@@ -3065,4 +3054,3 @@ namespace lp {
         out << "(exit)\n";
         }
 } // namespace lp
-

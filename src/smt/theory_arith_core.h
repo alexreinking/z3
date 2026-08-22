@@ -922,8 +922,7 @@ namespace smt {
         theory_var base = r.m_base_var;
         typename vector<row_entry>::const_iterator it  = r.begin_entries();
         typename vector<row_entry>::const_iterator end = r.end_entries();
-        unsigned idx = 0;
-        for (; it != end; ++it, ++idx) {
+        for (; it != end; ++it) {
             if (!it->is_dead() && get_var_kind(it->m_var) == k && it->m_var != base) {
                 numeral c = it->m_coeff;
                 c.neg();
@@ -2206,9 +2205,8 @@ namespace smt {
             return get_value(v) >= k ? l_true : l_false;
         case B_UPPER:
             return get_value(v) <= k ? l_true : l_false;
-        default:
-            return l_undef;
         }
+        return l_undef;
     }
 
     /**
@@ -2460,6 +2458,7 @@ namespace smt {
         case QUASI_BASE:
             quasi_base_row2base_row(get_var_row(v));
             SASSERT(get_var_kind(v) == BASE);
+            Z3_fallthrough;
         case BASE:
             if (!m_to_patch.contains(v) && get_value(v) < k) {
                 TRACE(to_patch_bug, tout << "need to be patched (assert_lower): "; display_var(tout, v););
@@ -2508,6 +2507,7 @@ namespace smt {
         case QUASI_BASE:
             quasi_base_row2base_row(get_var_row(v));
             SASSERT(get_var_kind(v) == BASE);
+            Z3_fallthrough;
         case BASE:
             if (!m_to_patch.contains(v) && get_value(v) > k) {
                 TRACE(to_patch_bug, tout << "need to be patched (assert upper): "; display_var(tout, v););
@@ -3027,7 +3027,6 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::propagate_bounds() {
         TRACE(propagate_bounds_detail, display(tout););
-        unsigned count = 0;
         for (unsigned r_idx : m_to_check) {
             row & r = m_rows[r_idx];
             if (r.get_base_var() != null_theory_var) {
@@ -3037,14 +3036,14 @@ namespace smt {
                     is_row_useful_for_bound_prop(r, lower_idx, upper_idx);
 
                     if (lower_idx >= 0) 
-                        count += imply_bound_for_monomial(r, lower_idx, true);
+                        imply_bound_for_monomial(r, lower_idx, true);
                     else if (lower_idx == -1) 
-                        count += imply_bound_for_all_monomials(r, true);
+                        imply_bound_for_all_monomials(r, true);
                     
                     if (upper_idx >= 0) 
-                        count += imply_bound_for_monomial(r, upper_idx, false);
+                        imply_bound_for_monomial(r, upper_idx, false);
                     else if (upper_idx == -1) 
-                        count += imply_bound_for_all_monomials(r, false);
+                        imply_bound_for_all_monomials(r, false);
 
                     // sneaking cheap eq detection in this loop
                     propagate_cheap_eq(r_idx);
@@ -3571,4 +3570,3 @@ namespace smt {
 
 
 }
-

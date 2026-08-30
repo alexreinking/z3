@@ -1,11 +1,3 @@
-################################################################################
-# Final library and executable targets
-################################################################################
-# A public header gives the library a real source from the start.  Components
-# add their object files to this target as they are declared below.
-add_library(libz3 api/z3.h)
-add_library(z3::libz3 ALIAS libz3)
-
 cmake_dependent_option(Z3_BUILD_EXECUTABLE
     "Build the z3 executable" ON
     "PROJECT_IS_TOP_LEVEL;Z3_BUILD_LIBZ3_CORE" OFF)
@@ -144,15 +136,7 @@ endif()
 # The `PRIVATE` usage requirement is specified so that when building Z3 as a
 # shared library the dependent libraries are specified on the link command line
 # so that if those are also shared libraries they are referenced by `libz3.so`.
-target_link_libraries(libz3 PRIVATE
-  "$<BUILD_LOCAL_INTERFACE:z3_internal_options>")
-
-# OBJECT components and internal build options are implementation details and
-# do not belong in either export interface. Static consumers do still need the
-# platform libraries used by objects in the archive.
-if (NOT BUILD_SHARED_LIBS)
-  target_link_libraries(libz3 INTERFACE ${Z3_DEPENDENT_LIBS})
-endif()
+target_link_libraries(libz3 PRIVATE z3_common)
 
 # Declare which header file are the public header files of libz3
 # these will automatically installed when the libz3 target is installed
@@ -178,7 +162,7 @@ endforeach()
 set_property(TARGET libz3 APPEND PROPERTY
     PUBLIC_HEADER "${CMAKE_CURRENT_BINARY_DIR}/util/z3_version.h")
 
-install(TARGETS libz3
+install(TARGETS libz3 z3_common
   EXPORT Z3_EXPORTED_TARGETS
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}" # On Windows this installs ``libz3.lib`` which CMake calls the "corresponding import library". Do we want this installed?

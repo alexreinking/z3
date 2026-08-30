@@ -36,7 +36,7 @@ add_custom_command(OUTPUT "${Z3_JAVA_NATIVE_JAVA}" "${Z3_JAVA_NATIVE_CPP}"
 # Add rule to build native code that provides a bridge between
 # ``Native.java`` and libz3's interfac3.
 add_library(z3java SHARED ${Z3_JAVA_NATIVE_CPP})
-target_link_libraries(z3java PRIVATE z3::libz3 z3_internal_options)
+target_link_libraries(z3java PRIVATE z3::libz3 z3_common)
 # FIXME:
 # Not sure if using all the flags used by the Z3 components is really necessary
 # here. The Python build system uses all the flags used for building

@@ -29,7 +29,7 @@ endif()
 
 add_library(z3jl SHARED z3jl.cpp)
 target_link_libraries(z3jl PRIVATE
-  JlCxx::cxxwrap_julia z3::libz3 z3_internal_options)
+  JlCxx::cxxwrap_julia z3::libz3 z3_common)
 target_include_directories(z3jl PRIVATE
     "${PROJECT_SOURCE_DIR}/src/api"
     "${PROJECT_BINARY_DIR}/src/api"

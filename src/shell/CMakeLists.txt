@@ -29,7 +29,7 @@ set_target_properties(shell PROPERTIES
 
 set_target_properties(shell PROPERTIES OUTPUT_NAME z3)
 target_link_libraries(shell PRIVATE
-  z3_internal_options ${_shell_components})
+  z3_common ${_shell_components})
 install(TARGETS shell
   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
 )

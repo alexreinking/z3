@@ -180,4 +180,4 @@ z3_add_install_tactic_rule(${z3_test_deps})
 z3_add_memory_initializer_rule(${z3_test_deps})
 z3_add_gparams_register_modules_rule(${z3_test_deps})
 target_link_libraries(test-z3 PRIVATE
-  z3_internal_options ${z3_test_expanded_deps})
+  z3_common ${z3_test_expanded_deps})

@@ -87,12 +87,42 @@ include(CheckCXXSourceCompiles)
 include(CMakeDependentOption)
 
 ################################################################################
+# Core library options
+################################################################################
+# Z3_BUILD_LIBZ3_SHARED was Z3's historical spelling. Honor it when supplied
+# by existing build scripts, but use CMake's standard switch internally.
+if (DEFINED Z3_BUILD_LIBZ3_SHARED)
+  set(BUILD_SHARED_LIBS "${Z3_BUILD_LIBZ3_SHARED}")
+endif()
+option(BUILD_SHARED_LIBS "Build libraries as shared libraries" ON)
+option(Z3_BUILD_LIBZ3_CORE "Build the core libz3 library" ON)
+option(Z3_BUILD_LIBZ3_MSVC_STATIC
+  "Build libz3 as a statically-linked runtime library" OFF)
+
+if (BUILD_SHARED_LIBS)
+  set(Z3_LIBZ3_VARIANT shared)
+else()
+  set(Z3_LIBZ3_VARIANT static)
+endif()
+
+if (MSVC AND Z3_BUILD_LIBZ3_MSVC_STATIC)
+  set(CMAKE_MSVC_RUNTIME_LIBRARY
+    "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
+################################################################################
 # Internal build requirements.  This target is deliberately not exported:
 # these settings are required to build Z3, not to consume its public API.
 ################################################################################
 add_library(z3_internal_options INTERFACE)
 target_compile_features(z3_internal_options INTERFACE cxx_std_20)
-set(Z3_DEPENDENT_LIBS "")
+
+# Common requirements for Z3's targets. Build-only compiler and linker policy
+# disappears from exports, leaving only dependencies needed by static users.
+add_library(z3_common INTERFACE)
+set_target_properties(z3_common PROPERTIES EXPORT_NAME _common)
+target_link_libraries(z3_common INTERFACE
+  "$<BUILD_LOCAL_INTERFACE:z3_internal_options>")
 
 ################################################################################
 # Build type
@@ -155,14 +185,27 @@ message(STATUS "Detected target architecture: ${TARGET_ARCHITECTURE}")
 ################################################################################
 include(${PROJECT_SOURCE_DIR}/cmake/z3_add_cxx_flag.cmake)
 
+if (CMAKE_SYSTEM_NAME STREQUAL "Darwin"
+    AND TARGET_ARCHITECTURE STREQUAL "arm64")
+  # Set this before creating targets because it initializes their
+  # OSX_ARCHITECTURES property.
+  set(CMAKE_OSX_ARCHITECTURES "arm64")
+endif()
+
+if (Z3_BUILD_LIBZ3_CORE)
+  # A public header gives the library a real source from the start. Components
+  # add their object files to this target as they are declared below.
+  add_library(libz3 src/api/z3.h)
+  add_library(z3::libz3 ALIAS libz3)
+  # z3++.h requires C++11. Use a granular feature because the cxx_std_11
+  # meta-feature is newer than the minimum CMake version for package consumers.
+  target_compile_features(libz3 INTERFACE cxx_noexcept)
+endif()
+
 ################################################################################
 # Platform detection
 ################################################################################
-if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-  if (TARGET_ARCHITECTURE STREQUAL "arm64")
-    set(CMAKE_OSX_ARCHITECTURES "arm64")
-  endif()
-elseif (WIN32)
+if (WIN32)
   message(STATUS "Platform: Windows")
   target_compile_definitions(z3_internal_options INTERFACE _WINDOWS)
   # workaround for #7420
@@ -171,7 +214,7 @@ elseif (WIN32)
   # dbghelp is used in debug.cpp for stack backtraces on Windows.
   # With MSVC this is handled by #pragma comment(lib, "dbghelp.lib") in debug.cpp,
   # but MinGW does not support that pragma, so we add it explicitly here.
-  list(APPEND Z3_DEPENDENT_LIBS dbghelp)
+  target_link_libraries(z3_common INTERFACE dbghelp)
 elseif (EMSCRIPTEN)
   message(STATUS "Platform: Emscripten")
   target_link_options(z3_internal_options INTERFACE
@@ -202,7 +245,7 @@ if (Z3_USE_LIB_GMP)
   # can't be found
   find_package(GMP REQUIRED)
   message(STATUS "Using libgmp")
-  list(APPEND Z3_DEPENDENT_LIBS GMP::GMP)
+  target_link_libraries(z3_common INTERFACE GMP::GMP)
   target_compile_definitions(z3_internal_options INTERFACE _MP_GMP)
 else()
   target_compile_definitions(z3_internal_options INTERFACE _MP_INTERNAL)
@@ -279,8 +322,8 @@ endif()
 # Threading support
 ################################################################################
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
-find_package(Threads)
-list(APPEND Z3_DEPENDENT_LIBS Threads::Threads)
+find_package(Threads REQUIRED)
+target_link_libraries(z3_common INTERFACE Threads::Threads)
 
 ################################################################################
 # Compiler warnings
@@ -314,28 +357,6 @@ if (UNIX AND CMAKE_GENERATOR STREQUAL "Ninja")
     target_compile_options(z3_internal_options INTERFACE -fcolor-diagnostics)
   endif()
 endif()
-
-################################################################################
-# Option to control what type of library we build
-################################################################################
-# Z3_BUILD_LIBZ3_SHARED was Z3's historical spelling.  Honor it when supplied
-# by existing build scripts, but use CMake's standard switch internally.
-if (DEFINED Z3_BUILD_LIBZ3_SHARED)
-  set(BUILD_SHARED_LIBS "${Z3_BUILD_LIBZ3_SHARED}")
-endif()
-option(BUILD_SHARED_LIBS "Build libraries as shared libraries" ON)
-
-if (BUILD_SHARED_LIBS)
-  set(Z3_LIBZ3_VARIANT shared)
-else()
-  set(Z3_LIBZ3_VARIANT static)
-endif()
-option(Z3_BUILD_LIBZ3_MSVC_STATIC "Build libz3 as a statically-linked runtime library"                   OFF)
-if (MSVC AND Z3_BUILD_LIBZ3_MSVC_STATIC)
-  set(CMAKE_MSVC_RUNTIME_LIBRARY
-    "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-endif()
-
 
 ################################################################################
 # Tracing
@@ -443,7 +464,6 @@ endif()
 # Check atomic linking as needed
 ################################################################################
 include(${PROJECT_SOURCE_DIR}/cmake/check_link_atomic.cmake)
-target_link_libraries(z3_internal_options INTERFACE ${Z3_DEPENDENT_LIBS})
 
 ################################################################################
 # Report default CMake flags
@@ -466,8 +486,6 @@ foreach (_build_type ${build_types_to_report})
   message(STATUS "CMAKE_SHARED_LINKER_FLAGS_${_build_type}: \"${CMAKE_SHARED_LINKER_FLAGS_${_build_type}}\"")
   message(STATUS "CMAKE_STATIC_LINKER_FLAGS_${_build_type}: \"${CMAKE_STATIC_LINKER_FLAGS_${_build_type}}\"")
 endforeach()
-
-message(STATUS "Z3_DEPENDENT_LIBS: ${Z3_DEPENDENT_LIBS}")
 
 ################################################################################
 # Z3 installation locations
@@ -563,7 +581,6 @@ endforeach()
 ################################################################################
 include(CMakePackageConfigHelpers)
 
-option(Z3_BUILD_LIBZ3_CORE "Build the core libz3 library" ON)
 # Only export targets if we built libz3
 if (Z3_BUILD_LIBZ3_CORE)
   ################################################################################

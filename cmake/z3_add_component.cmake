@@ -191,7 +191,7 @@ macro(z3_add_component component_name)
   # overhead it adds?
   add_library(${component_name} OBJECT ${Z3_MOD_SOURCES} ${_list_generated_headers})
   unset(_list_generated_headers)
-  target_link_libraries(${component_name} PRIVATE z3_internal_options)
+  target_link_libraries(${component_name} PRIVATE z3_common)
   set_target_properties(${component_name} PROPERTIES
     Z3_IS_COMPONENT TRUE
     Z3_REGISTER_MODULE_HEADERS "${_register_module_headers}"

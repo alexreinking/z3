@@ -60,7 +60,6 @@ add_executable(test-z3
   for_each_file.cpp
   get_consequences.cpp
   get_implied_equalities.cpp
-  "${CMAKE_CURRENT_BINARY_DIR}/gparams_register_modules.cpp"
   hashtable.cpp
   heap.cpp
   heap_trie.cpp
@@ -71,7 +70,6 @@ add_executable(test-z3
   horner.cpp
   hwf.cpp
   inf_rational.cpp
-  "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp"
   interval.cpp
   karr.cpp
   lcube.cpp
@@ -80,7 +78,6 @@ add_executable(test-z3
   main.cpp
   map.cpp
   matcher.cpp
-  "${CMAKE_CURRENT_BINARY_DIR}/mem_initializer.cpp"
   memory.cpp
   model2expr.cpp
   model_based_opt.cpp
@@ -175,8 +172,6 @@ add_executable(test-z3
   lp/nla_solver_test.cpp
   zstring.cpp
 )
-z3_add_install_tactic_rule(${z3_test_deps})
-z3_add_memory_initializer_rule(${z3_test_deps})
-z3_add_gparams_register_modules_rule(${z3_test_deps})
 target_link_libraries(test-z3 PRIVATE
   z3_common ${z3_test_deps})
+z3_generate_registration(test-z3)

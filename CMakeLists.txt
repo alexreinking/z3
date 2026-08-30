@@ -1,5 +1,5 @@
 # Enforce some CMake policies
-cmake_minimum_required(VERSION 3.26)
+cmake_minimum_required(VERSION 3.30)
 
 file(STRINGS scripts/VERSION.txt Z3_VERSION)
 project(Z3 VERSION ${Z3_VERSION} LANGUAGES CXX)

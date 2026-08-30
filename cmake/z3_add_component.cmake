@@ -2,53 +2,15 @@ include(CMakeParseArguments)
 define_property(TARGET PROPERTY Z3_IS_COMPONENT
                 BRIEF_DOCS "Whether this target is a Z3 component"
                 FULL_DOCS "Marks targets created by z3_add_component")
-define_property(TARGET PROPERTY Z3_REGISTER_MODULE_HEADERS
+define_property(TARGET PROPERTY INTERFACE_Z3_REGISTER_MODULE_HEADERS
                 BRIEF_DOCS "Headers containing Z3 module registrations"
                 FULL_DOCS "Headers scanned to generate parameter registration code")
-define_property(TARGET PROPERTY Z3_TACTIC_HEADERS
+define_property(TARGET PROPERTY INTERFACE_Z3_TACTIC_HEADERS
                 BRIEF_DOCS "Headers containing Z3 tactic registrations"
                 FULL_DOCS "Headers scanned to generate tactic installation code")
-define_property(TARGET PROPERTY Z3_MEM_INIT_FINALIZER_HEADERS
+define_property(TARGET PROPERTY INTERFACE_Z3_MEM_INIT_FINALIZER_HEADERS
                 BRIEF_DOCS "Headers containing Z3 memory hooks"
                 FULL_DOCS "Headers scanned to generate memory initialization code")
-
-function(z3_collect_component_closure output_var)
-  if (ARGC LESS 2)
-    message(FATAL_ERROR "Invalid number of arguments")
-  endif()
-  # Remaining args should be component names
-  set(_expanded_deps "")
-  set(_pending_deps ${ARGN})
-  while (_pending_deps)
-    list(POP_FRONT _pending_deps dependency)
-    if (NOT TARGET ${dependency})
-      message(FATAL_ERROR "Unknown Z3 component target \"${dependency}\"")
-    endif()
-    get_target_property(_is_component ${dependency} Z3_IS_COMPONENT)
-    if (NOT _is_component)
-      message(FATAL_ERROR "Target \"${dependency}\" is not a Z3 component")
-    endif()
-    if (dependency IN_LIST _expanded_deps)
-      continue()
-    endif()
-    list(APPEND _expanded_deps ${dependency})
-    get_target_property(_links ${dependency} LINK_LIBRARIES)
-    if (_links)
-      foreach (_link IN LISTS _links)
-        if (TARGET ${_link})
-          get_target_property(_link_type ${_link} TYPE)
-          if (_link_type STREQUAL "OBJECT_LIBRARY")
-            get_target_property(_link_is_component ${_link} Z3_IS_COMPONENT)
-            if (_link_is_component)
-              list(APPEND _pending_deps ${_link})
-            endif()
-          endif()
-        endif()
-      endforeach()
-    endif()
-  endwhile()
-  set(${output_var} ${_expanded_deps} PARENT_SCOPE)
-endfunction()
 
 # z3_add_component(component_name
 #   [NOT_LIBZ3_COMPONENT]
@@ -194,9 +156,9 @@ macro(z3_add_component component_name)
   target_link_libraries(${component_name} PRIVATE z3_common)
   set_target_properties(${component_name} PROPERTIES
     Z3_IS_COMPONENT TRUE
-    Z3_REGISTER_MODULE_HEADERS "${_register_module_headers}"
-    Z3_TACTIC_HEADERS "${_tactic_headers}"
-    Z3_MEM_INIT_FINALIZER_HEADERS "${_mem_init_finalizer_headers}"
+    INTERFACE_Z3_REGISTER_MODULE_HEADERS "${_register_module_headers}"
+    INTERFACE_Z3_TACTIC_HEADERS "${_tactic_headers}"
+    INTERFACE_Z3_MEM_INIT_FINALIZER_HEADERS "${_mem_init_finalizer_headers}"
   )
   set_target_properties(${component_name} PROPERTIES
     # Position independent code needed in shared libraries
@@ -237,133 +199,88 @@ macro(z3_add_component component_name)
   endif()
 endmacro()
 
-macro(z3_add_install_tactic_rule)
-  # Arguments should be component names to use
-  if (ARGC LESS 1)
-    message(FATAL_ERROR "There should be at least one component")
+function(z3_generate_registration target)
+  if (NOT TARGET "${target}")
+    message(FATAL_ERROR "Unknown target \"${target}\"")
   endif()
-  if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/install_tactic.cpp")
-    message(FATAL_ERROR "\"${CMAKE_CURRENT_SOURCE_DIR}/install_tactic.cpp\""
-            ${z3_polluted_tree_msg}
-    )
-  endif()
-  z3_collect_component_closure(_expanded_components ${ARGN})
 
-  # Get header files that declare tactics/probes
-  set(_tactic_header_files "")
-  foreach (dependency ${_expanded_components})
-    get_target_property(_component_tactic_header_files
-      ${dependency} Z3_TACTIC_HEADERS)
-    if (_component_tactic_header_files)
-      list(APPEND _tactic_header_files ${_component_tactic_header_files})
+  foreach (_generated_source IN ITEMS
+      install_tactic.cpp
+      mem_initializer.cpp
+      gparams_register_modules.cpp)
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${_generated_source}")
+      message(FATAL_ERROR
+        "\"${CMAKE_CURRENT_SOURCE_DIR}/${_generated_source}\""
+        ${z3_polluted_tree_msg})
     endif()
   endforeach()
-  unset(_component_tactic_header_files)
 
-  string(REPLACE ";" "\n" _tactic_header_files "${_tactic_header_files}")
-  # Only write the deps file if content has changed to avoid unnecessary rebuilds
-  # (file(WRITE) always updates the timestamp even if content is unchanged)
-  set(_install_tactic_deps_file "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.deps")
-  if (EXISTS "${_install_tactic_deps_file}")
-    file(READ "${_install_tactic_deps_file}" _install_tactic_deps_old)
-  else()
-    set(_install_tactic_deps_old "")
-  endif()
-  if (NOT _install_tactic_deps_old STREQUAL "${_tactic_header_files}")
-    file(WRITE "${_install_tactic_deps_file}" "${_tactic_header_files}")
-  endif()
-  unset(_install_tactic_deps_old)
-  unset(_install_tactic_deps_file)
-  add_custom_command(OUTPUT "install_tactic.cpp"
+  # Registration metadata follows the private component link graph. Custom
+  # transitive link properties include dependencies guarded by LINK_ONLY.
+  set_property(TARGET "${target}" APPEND PROPERTY TRANSITIVE_LINK_PROPERTIES
+    Z3_REGISTER_MODULE_HEADERS
+    Z3_TACTIC_HEADERS
+    Z3_MEM_INIT_FINALIZER_HEADERS)
+
+  set(_register_module_headers
+    "$<TARGET_PROPERTY:${target},Z3_REGISTER_MODULE_HEADERS>")
+  set(_tactic_headers "$<TARGET_PROPERTY:${target},Z3_TACTIC_HEADERS>")
+  set(_mem_init_finalizer_headers
+    "$<TARGET_PROPERTY:${target},Z3_MEM_INIT_FINALIZER_HEADERS>")
+
+  # The tactic generator takes its inputs in a file. file(GENERATE) evaluates
+  # the target's transitive metadata without rewriting an unchanged deps file.
+  set(_install_tactic_deps
+    "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.deps")
+  file(GENERATE
+    OUTPUT "${_install_tactic_deps}"
+    CONTENT "$<JOIN:${_tactic_headers},\n>"
+    TARGET "${target}")
+
+  add_custom_command(OUTPUT
+      "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp"
     COMMAND "${Python3_EXECUTABLE}"
-    "${PROJECT_SOURCE_DIR}/scripts/mk_install_tactic_cpp.py"
-    "${CMAKE_CURRENT_BINARY_DIR}"
-    "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.deps"
+      "${PROJECT_SOURCE_DIR}/scripts/mk_install_tactic_cpp.py"
+      "${CMAKE_CURRENT_BINARY_DIR}"
+      "${_install_tactic_deps}"
     DEPENDS "${PROJECT_SOURCE_DIR}/scripts/mk_install_tactic_cpp.py"
-            ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
-            "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.deps"
+      ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
+      "${_install_tactic_deps}"
     COMMENT "Generating \"${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp\""
     USES_TERMINAL
-    VERBATIM
-  )
-  unset(_expanded_components)
-  unset(_tactic_header_files)
-endmacro()
+    VERBATIM)
 
-macro(z3_add_memory_initializer_rule)
-  # Arguments should be component names to use
-  if (ARGC LESS 1)
-    message(FATAL_ERROR "There should be at least one component")
-  endif()
-  if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/mem_initializer.cpp")
-    message(FATAL_ERROR "\"${CMAKE_CURRENT_SOURCE_DIR}/mem_initializer.cpp\""
-            ${z3_polluted_tree_msg}
-    )
-  endif()
-  z3_collect_component_closure(_expanded_components ${ARGN})
-
-  # Get header files that declare initializers and finalizers
-  set(_mem_init_finalize_headers "")
-  foreach (dependency ${_expanded_components})
-    get_target_property(_dep_mem_init_finalize_headers
-      ${dependency} Z3_MEM_INIT_FINALIZER_HEADERS)
-    if (_dep_mem_init_finalize_headers)
-      list(APPEND _mem_init_finalize_headers ${_dep_mem_init_finalize_headers})
-    endif()
-  endforeach()
-
-  add_custom_command(OUTPUT "mem_initializer.cpp"
+  add_custom_command(OUTPUT
+      "${CMAKE_CURRENT_BINARY_DIR}/mem_initializer.cpp"
     COMMAND "${Python3_EXECUTABLE}"
-    "${PROJECT_SOURCE_DIR}/scripts/mk_mem_initializer_cpp.py"
-    "${CMAKE_CURRENT_BINARY_DIR}"
-    ${_mem_init_finalize_headers}
+      "${PROJECT_SOURCE_DIR}/scripts/mk_mem_initializer_cpp.py"
+      "${CMAKE_CURRENT_BINARY_DIR}"
+      "${_mem_init_finalizer_headers}"
     DEPENDS "${PROJECT_SOURCE_DIR}/scripts/mk_mem_initializer_cpp.py"
-            ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
-            ${_mem_init_finalize_headers}
+      ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
+      "${_mem_init_finalizer_headers}"
     COMMENT "Generating \"${CMAKE_CURRENT_BINARY_DIR}/mem_initializer.cpp\""
+    COMMAND_EXPAND_LISTS
     USES_TERMINAL
-    VERBATIM
-  )
-  unset(_mem_init_finalize_headers)
-  unset(_expanded_components)
-endmacro()
+    VERBATIM)
 
-macro(z3_add_gparams_register_modules_rule)
-  # Arguments should be component names to use
-  if (ARGC LESS 1)
-    message(FATAL_ERROR "There should be at least one component")
-  endif()
-  if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gparams_register_modules.cpp")
-    message(FATAL_ERROR "\"${CMAKE_CURRENT_SOURCE_DIR}/gparams_register_modules.cpp\""
-            ${z3_polluted_tree_msg}
-    )
-  endif()
-  z3_collect_component_closure(_expanded_components ${ARGN})
-
-  # Get the list of header files to parse
-  set(_register_module_header_files "")
-  foreach (dependency ${_expanded_components})
-    get_target_property(_component_register_module_header_files
-      ${dependency} Z3_REGISTER_MODULE_HEADERS)
-    if (_component_register_module_header_files)
-      list(APPEND _register_module_header_files
-        ${_component_register_module_header_files})
-    endif()
-  endforeach()
-  unset(_component_register_module_header_files)
-
-  add_custom_command(OUTPUT "gparams_register_modules.cpp"
+  add_custom_command(OUTPUT
+      "${CMAKE_CURRENT_BINARY_DIR}/gparams_register_modules.cpp"
     COMMAND "${Python3_EXECUTABLE}"
-    "${PROJECT_SOURCE_DIR}/scripts/mk_gparams_register_modules_cpp.py"
-    "${CMAKE_CURRENT_BINARY_DIR}"
-    ${_register_module_header_files}
+      "${PROJECT_SOURCE_DIR}/scripts/mk_gparams_register_modules_cpp.py"
+      "${CMAKE_CURRENT_BINARY_DIR}"
+      "${_register_module_headers}"
     DEPENDS "${PROJECT_SOURCE_DIR}/scripts/mk_gparams_register_modules_cpp.py"
-            ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
-            ${_register_module_header_files}
-    COMMENT "Generating \"${CMAKE_CURRENT_BINARY_DIR}/gparams_register_modules.cpp\""
+      ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
+      "${_register_module_headers}"
+    COMMENT
+      "Generating \"${CMAKE_CURRENT_BINARY_DIR}/gparams_register_modules.cpp\""
+    COMMAND_EXPAND_LISTS
     USES_TERMINAL
-    VERBATIM
-  )
-  unset(_expanded_components)
-  unset(_register_module_header_files)
-endmacro()
+    VERBATIM)
+
+  target_sources("${target}" PRIVATE
+    "${CMAKE_CURRENT_BINARY_DIR}/gparams_register_modules.cpp"
+    "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp"
+    "${CMAKE_CURRENT_BINARY_DIR}/mem_initializer.cpp")
+endfunction()

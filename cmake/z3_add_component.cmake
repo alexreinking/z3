@@ -12,7 +12,7 @@ define_property(TARGET PROPERTY Z3_MEM_INIT_FINALIZER_HEADERS
                 BRIEF_DOCS "Headers containing Z3 memory hooks"
                 FULL_DOCS "Headers scanned to generate memory initialization code")
 
-function(z3_expand_dependencies output_var)
+function(z3_collect_component_closure output_var)
   if (ARGC LESS 2)
     message(FATAL_ERROR "Invalid number of arguments")
   endif()
@@ -220,8 +220,16 @@ macro(z3_add_component component_name)
       message(FATAL_ERROR "Component \"${component_name}\" depends on non-component target \"${dependency}\"")
     endif()
   endforeach()
-  target_link_libraries(${component_name} PRIVATE
-    ${Z3_MOD_COMPONENT_DEPENDENCIES})
+  if (Z3_MOD_COMPONENT_DEPENDENCIES)
+    target_link_libraries(${component_name} PRIVATE
+      ${Z3_MOD_COMPONENT_DEPENDENCIES})
+
+    # Object files propagate only from direct OBJECT library dependencies.
+    # Inject component dependencies into final consumers' direct link sets so
+    # CMake carries the complete object closure without manual expansion.
+    set_property(TARGET ${component_name} APPEND PROPERTY
+      INTERFACE_LINK_LIBRARIES_DIRECT ${Z3_MOD_COMPONENT_DEPENDENCIES})
+  endif()
 
   if (NOT Z3_MOD_NOT_LIBZ3_COMPONENT)
     target_link_libraries(libz3 PRIVATE
@@ -239,7 +247,7 @@ macro(z3_add_install_tactic_rule)
             ${z3_polluted_tree_msg}
     )
   endif()
-  z3_expand_dependencies(_expanded_components ${ARGN})
+  z3_collect_component_closure(_expanded_components ${ARGN})
 
   # Get header files that declare tactics/probes
   set(_tactic_header_files "")
@@ -292,7 +300,7 @@ macro(z3_add_memory_initializer_rule)
             ${z3_polluted_tree_msg}
     )
   endif()
-  z3_expand_dependencies(_expanded_components ${ARGN})
+  z3_collect_component_closure(_expanded_components ${ARGN})
 
   # Get header files that declare initializers and finalizers
   set(_mem_init_finalize_headers "")
@@ -330,7 +338,7 @@ macro(z3_add_gparams_register_modules_rule)
             ${z3_polluted_tree_msg}
     )
   endif()
-  z3_expand_dependencies(_expanded_components ${ARGN})
+  z3_collect_component_closure(_expanded_components ${ARGN})
 
   # Get the list of header files to parse
   set(_register_module_header_files "")

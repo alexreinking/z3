@@ -16,10 +16,6 @@ add_executable(shell
   z3_log_frontend.cpp
 )
 
-# The executable uses internal hidden symbols, so link the transitive OBJECT
-# component graph directly instead of going through the shared libz3 target.
-z3_expand_dependencies(_shell_components ${shell_deps})
-
 set_target_properties(shell PROPERTIES
     # Position independent code needed in shared libraries
     POSITION_INDEPENDENT_CODE ON
@@ -28,8 +24,10 @@ set_target_properties(shell PROPERTIES
     VISIBILITY_INLINES_HIDDEN ON)
 
 set_target_properties(shell PROPERTIES OUTPUT_NAME z3)
+# The executable uses internal hidden symbols, so link the OBJECT component
+# roots directly instead of going through the shared libz3 target.
 target_link_libraries(shell PRIVATE
-  z3_common ${_shell_components})
+  z3_common ${shell_deps})
 install(TARGETS shell
   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
 )

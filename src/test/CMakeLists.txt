@@ -4,7 +4,6 @@ add_subdirectory(lp)
 # z3-test executable
 ################################################################################
 set(z3_test_deps api fuzzing simplex)
-z3_expand_dependencies(z3_test_expanded_deps ${z3_test_deps})
 add_executable(test-z3
   EXCLUDE_FROM_ALL
   ackermannize.cpp
@@ -180,4 +179,4 @@ z3_add_install_tactic_rule(${z3_test_deps})
 z3_add_memory_initializer_rule(${z3_test_deps})
 z3_add_gparams_register_modules_rule(${z3_test_deps})
 target_link_libraries(test-z3 PRIVATE
-  z3_common ${z3_test_expanded_deps})
+  z3_common ${z3_test_deps})

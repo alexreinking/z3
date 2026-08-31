@@ -84,10 +84,31 @@ add_subdirectory(api/dll)
 ################################################################################
 # libz3
 ################################################################################
-target_include_directories(libz3 INTERFACE
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/api>
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/api/c++>
-  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+target_sources(libz3 PUBLIC
+  FILE_SET c_headers
+  TYPE HEADERS
+  BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/api"
+  FILES
+    api/z3_algebraic.h
+    api/z3_api.h
+    api/z3_ast_containers.h
+    api/z3_fixedpoint.h
+    api/z3_fpa.h
+    api/z3.h
+    api/z3_macros.h
+    api/z3_optimization.h
+    api/z3_polynomial.h
+    api/z3_rcf.h
+    api/z3_spacer.h
+    api/z3_v1.h
+  FILE_SET cxx_headers
+  TYPE HEADERS
+  BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/api/c++"
+  FILES api/c++/z3++.h
+  FILE_SET generated_headers
+  TYPE HEADERS
+  BASE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/util"
+  FILES "${CMAKE_CURRENT_BINARY_DIR}/util/z3_version.h")
 set_target_properties(libz3 PROPERTIES
   # VERSION determines the version in the filename of the shared library.
   # SOVERSION determines the value of the DT_SONAME field on ELF platforms.
@@ -138,36 +159,14 @@ endif()
 # so that if those are also shared libraries they are referenced by `libz3.so`.
 target_link_libraries(libz3 PRIVATE z3_common)
 
-# Declare which header file are the public header files of libz3
-# these will automatically installed when the libz3 target is installed
-set (libz3_public_headers
-  z3_algebraic.h
-  z3_api.h
-  z3_ast_containers.h
-  z3_fixedpoint.h
-  z3_fpa.h
-  z3.h
-  c++/z3++.h
-  z3_macros.h
-  z3_optimization.h
-  z3_polynomial.h
-  z3_rcf.h
-  z3_v1.h
-  z3_spacer.h
-)
-foreach (header ${libz3_public_headers})
-  set_property(TARGET libz3 APPEND PROPERTY
-    PUBLIC_HEADER "${PROJECT_SOURCE_DIR}/src/api/${header}")
-endforeach()
-set_property(TARGET libz3 APPEND PROPERTY
-    PUBLIC_HEADER "${CMAKE_CURRENT_BINARY_DIR}/util/z3_version.h")
-
 install(TARGETS libz3 z3_common
   EXPORT Z3_EXPORTED_TARGETS
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}" # On Windows this installs ``libz3.lib`` which CMake calls the "corresponding import library". Do we want this installed?
   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" # For Windows. DLLs are runtime targets for CMake
-  PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+  FILE_SET c_headers DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+  FILE_SET cxx_headers DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+  FILE_SET generated_headers DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 
 if (MSVC)

@@ -193,9 +193,9 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Darwin"
 endif()
 
 if (Z3_BUILD_LIBZ3_CORE)
-  # A public header gives the library a real source from the start. Components
-  # add their object files to this target as they are declared below.
-  add_library(libz3 src/api/z3.h)
+  # Components add their object files to this target as they are declared
+  # below. Public headers are attached as file sets in src/CMakeLists.txt.
+  add_library(libz3)
   add_library(z3::libz3 ALIAS libz3)
   # z3++.h requires C++11. Use a granular feature because the cxx_std_11
   # meta-feature is newer than the minimum CMake version for package consumers.

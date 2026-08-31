@@ -186,13 +186,6 @@ message(STATUS "Detected target architecture: ${TARGET_ARCHITECTURE}")
 ################################################################################
 include(${PROJECT_SOURCE_DIR}/cmake/z3_add_cxx_flag.cmake)
 
-if (CMAKE_SYSTEM_NAME STREQUAL "Darwin"
-    AND TARGET_ARCHITECTURE STREQUAL "arm64")
-  # Set this before creating targets because it initializes their
-  # OSX_ARCHITECTURES property.
-  set(CMAKE_OSX_ARCHITECTURES "arm64")
-endif()
-
 if (Z3_BUILD_LIBZ3_CORE)
   # Components add their object files to this target as they are declared
   # below. Public headers are attached as file sets in src/CMakeLists.txt.

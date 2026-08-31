@@ -151,9 +151,12 @@ if(TARGET_ARCHITECTURE STREQUAL "i686")
 elseif(TARGET_ARCHITECTURE STREQUAL "arm64")
     set(Z3_DOTNET_PLATFORM "AnyCPU")
     set(Z3_DOTNET_WIN_RID "win-arm64")
-else()
+elseif(TARGET_ARCHITECTURE STREQUAL "x86_64")
     set(Z3_DOTNET_PLATFORM "AnyCPU")
     set(Z3_DOTNET_WIN_RID "win-x64")
+else()
+    message(FATAL_ERROR
+        ".NET bindings do not support the `${TARGET_ARCHITECTURE}` target architecture")
 endif()
 
 # TODO conditional for signing. we can then enable the ``Release_delaysign`` configuration
@@ -195,4 +198,3 @@ if(Z3_INSTALL_DOTNET_BINDINGS)
 #  set(PREFIX "${CMAKE_INSTALL_PREFIX}")
 #  set(VERSION "${Z3_VERSION}")
 endif()
-

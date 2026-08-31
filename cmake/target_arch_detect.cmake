@@ -1,22 +1,45 @@
-###############################################################################
-# Target detection
-#
-# We abuse the compiler preprocessor to work out what target the compiler is
-# building for. The nice thing about this approach is that we'll detect the
-# right target even if we are using a cross compiler.
-###############################################################################
 function(detect_target_architecture OUTPUT_VAR)
-  try_run(run_result
-    compile_result
-    "${PROJECT_BINARY_DIR}"
-    "${PROJECT_SOURCE_DIR}/cmake/target_arch_detect.cpp"
-    COMPILE_OUTPUT_VARIABLE compiler_output
-  )
-  if (compile_result)
-    message(FATAL_ERROR "Expected compile to fail")
+  # Prefer explicit target settings, then compiler metadata, and finally the
+  # processor supplied by the platform or cross-compiling toolchain.
+  if (APPLE AND CMAKE_OSX_ARCHITECTURES)
+    set(architectures ${CMAKE_OSX_ARCHITECTURES})
+  elseif (CMAKE_CXX_COMPILER_ARCHITECTURE_ID)
+    set(architectures ${CMAKE_CXX_COMPILER_ARCHITECTURE_ID})
+  elseif (CMAKE_CXX_COMPILER_TARGET)
+    set(architectures "${CMAKE_CXX_COMPILER_TARGET}")
+  else()
+    set(architectures "${CMAKE_SYSTEM_PROCESSOR}")
   endif()
-  string(REGEX MATCH "CMAKE_TARGET_ARCH_([a-zA-Z0-9_]+)" arch "${compiler_output}")
-  # Strip out prefix
-  string(REPLACE "CMAKE_TARGET_ARCH_" "" arch "${arch}")
+
+  list(LENGTH architectures architecture_count)
+  if (architecture_count EQUAL 0)
+    set(arch unknown)
+  elseif (architecture_count GREATER 1)
+    set(arch universal)
+  else()
+    list(GET architectures 0 architecture)
+    string(TOLOWER "${architecture}" architecture)
+
+    if (architecture MATCHES "(^|[-_])(x86_64|amd64|x64)([-_]|$)")
+      if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+        set(arch i686)
+      else()
+        set(arch x86_64)
+      endif()
+    elseif (architecture MATCHES "(^|[-_])(i[3-6]86|x86)([-_]|$)")
+      if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+        set(arch x86_64)
+      else()
+        set(arch i686)
+      endif()
+    elseif (architecture MATCHES "(^|[-_])(aarch64|arm64|arm64e)([-_]|$)")
+      set(arch arm64)
+    elseif (architecture MATCHES "(^|[-_])arm(v[4-9].*)?([-_]|$)")
+      set(arch arm)
+    else()
+      set(arch unknown)
+    endif()
+  endif()
+
   set(${OUTPUT_VAR} "${arch}" PARENT_SCOPE)
 endfunction()

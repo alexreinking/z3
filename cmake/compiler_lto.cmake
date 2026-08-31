@@ -26,12 +26,6 @@ if (Z3_LINK_TIME_OPTIMIZATION)
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_${_config} ON)
   endforeach()
 
-  # CMake learned to select GCC's parallel -flto=auto mode in 3.24. Keep the
-  # link phase parallel when honoring the older supported CMake versions.
-  if (CMAKE_VERSION VERSION_LESS 3.24 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    target_link_options(z3_internal_options INTERFACE
-      $<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>:-flto=auto>)
-  endif()
 else()
   message(STATUS "LTO disabled")
 endif()

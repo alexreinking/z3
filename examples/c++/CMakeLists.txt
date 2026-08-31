@@ -14,17 +14,12 @@ find_package(Z3
   NO_DEFAULT_PATH
 )
 
-################################################################################
-# Z3 C++ API bindings require C++11
-################################################################################
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 message(STATUS "Z3_FOUND: ${Z3_FOUND}")
 message(STATUS "Found Z3 ${Z3_VERSION_STRING}")
 message(STATUS "Z3_DIR: ${Z3_DIR}")
 
 add_executable(cpp_example example.cpp)
+target_compile_features(cpp_example PRIVATE cxx_std_11)
 target_link_libraries(cpp_example PRIVATE z3::libz3)
 
 if (CMAKE_SYSTEM_NAME MATCHES "[Ww]indows")

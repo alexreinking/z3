@@ -14,12 +14,6 @@ find_package(Z3
   NO_DEFAULT_PATH
 )
 
-################################################################################
-# Z3 C++ API bindings require C++11, but this code needs later.
-################################################################################
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 message(STATUS "Z3_FOUND: ${Z3_FOUND}")
 message(STATUS "Found Z3 ${Z3_VERSION_STRING}")
 message(STATUS "Z3_DIR: ${Z3_DIR}")
@@ -33,6 +27,7 @@ add_executable(user_propagator_example
         user_propagator_internal_maximisation.h
         user_propagator_created_maximisation.h)
 
+target_compile_features(user_propagator_example PRIVATE cxx_std_20)
 target_link_libraries(user_propagator_example PRIVATE z3::libz3)
 
 if (CMAKE_SYSTEM_NAME MATCHES "[Ww]indows")

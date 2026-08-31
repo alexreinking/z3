@@ -659,8 +659,41 @@ configure_file(
 )
 unset(Z3_FIND_GMP_MODULE_DIR)
 
+set(Z3_PKGCONFIG_DIR "${CMAKE_INSTALL_PKGCONFIGDIR}")
+cmake_path(ABSOLUTE_PATH Z3_PKGCONFIG_DIR
+  BASE_DIRECTORY "${CMAKE_INSTALL_PREFIX}"
+  NORMALIZE)
+set(Z3_PKGCONFIG_PREFIX "${CMAKE_INSTALL_PREFIX}")
+cmake_path(RELATIVE_PATH Z3_PKGCONFIG_PREFIX
+  BASE_DIRECTORY "${Z3_PKGCONFIG_DIR}")
+
+set(Z3_PKGCONFIG_REQUIRES_PRIVATE "")
+if (Z3_USE_LIB_GMP)
+  set(Z3_PKGCONFIG_REQUIRES_PRIVATE gmp)
+endif()
+
+set(Z3_PKGCONFIG_LIBS_PRIVATE "")
+if (CMAKE_THREAD_LIBS_INIT)
+  list(APPEND Z3_PKGCONFIG_LIBS_PRIVATE "${CMAKE_THREAD_LIBS_INIT}")
+endif()
+if (ATOMICS_REQUIRE_LIBATOMIC)
+  list(APPEND Z3_PKGCONFIG_LIBS_PRIVATE -latomic)
+endif()
+if (MINGW)
+  list(APPEND Z3_PKGCONFIG_LIBS_PRIVATE -ldbghelp)
+endif()
+foreach (implicit_lib IN LISTS CMAKE_CXX_IMPLICIT_LINK_LIBRARIES)
+  if (implicit_lib MATCHES "^(c\\+\\+|stdc\\+\\+|m)$")
+    list(APPEND Z3_PKGCONFIG_LIBS_PRIVATE "-l${implicit_lib}")
+  endif()
+endforeach()
+list(REMOVE_DUPLICATES Z3_PKGCONFIG_LIBS_PRIVATE)
+list(JOIN Z3_PKGCONFIG_LIBS_PRIVATE " " Z3_PKGCONFIG_LIBS_PRIVATE)
+
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/z3.pc.cmake.in"
-	"${CMAKE_CURRENT_BINARY_DIR}/z3.pc" @ONLY)
+  "${CMAKE_CURRENT_BINARY_DIR}/z3.pc.configured" @ONLY)
+file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/z3.pc"
+  INPUT "${CMAKE_CURRENT_BINARY_DIR}/z3.pc.configured")
 
 ################################################################################
 # Create `Z3Config.cmake` and related files for install tree so clients can use

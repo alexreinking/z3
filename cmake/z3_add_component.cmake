@@ -1,4 +1,3 @@
-include(CMakeParseArguments)
 define_property(TARGET PROPERTY Z3_IS_COMPONENT
                 BRIEF_DOCS "Whether this target is a Z3 component"
                 FULL_DOCS "Marks targets created by z3_add_component")
@@ -60,11 +59,11 @@ define_property(TARGET PROPERTY INTERFACE_Z3_MEM_INIT_FINALIZER_HEADERS
 # The optional ``MEMORY_INIT_FINALIZER_HEADERS`` keyword should be followed by a list
 # of one or more header files that contain memory initializer/finalizer declarations
 # (i.e. ``ADD_INITIALIZER()`` or ``ADD_FINALIZER()``).
-macro(z3_add_component component_name)
-  CMAKE_PARSE_ARGUMENTS("Z3_MOD"
+function(z3_add_component component_name)
+  cmake_parse_arguments(PARSE_ARGV 1 Z3_MOD
     "NOT_LIBZ3_COMPONENT"
     ""
-    "SOURCES;COMPONENT_DEPENDENCIES;PYG_FILES;TACTIC_HEADERS;EXTRA_REGISTER_MODULE_HEADERS;MEMORY_INIT_FINALIZER_HEADERS" ${ARGN})
+    "SOURCES;COMPONENT_DEPENDENCIES;PYG_FILES;TACTIC_HEADERS;EXTRA_REGISTER_MODULE_HEADERS;MEMORY_INIT_FINALIZER_HEADERS")
   message(STATUS "Adding component ${component_name}")
   # Note: We don't check the sources exist here because
   # they might be generated files that don't exist yet.
@@ -104,10 +103,6 @@ macro(z3_add_component component_name)
     # header files to scan.
     list(APPEND _register_module_headers "${_full_output_file_path}")
   endforeach()
-  unset(_full_include_dir_path)
-  unset(_full_output_file_path)
-  unset(_output_file)
-
   # Resolve tactic/probe headers.
   set(_tactic_headers "")
   foreach (tactic_header ${Z3_MOD_TACTIC_HEADERS})
@@ -117,8 +112,6 @@ macro(z3_add_component component_name)
     endif()
     list(APPEND _tactic_headers "${_full_tactic_header_file_path}")
   endforeach()
-  unset(_full_tactic_header_file_path)
-
   # Add additional register module headers
   foreach (extra_register_module_header ${Z3_MOD_EXTRA_REGISTER_MODULE_HEADERS})
     set(_full_extra_register_module_header_path
@@ -130,8 +123,6 @@ macro(z3_add_component component_name)
     list(APPEND _register_module_headers
       "${_full_extra_register_module_header_path}")
   endforeach()
-  unset(_full_extra_register_module_header)
-
   # Resolve memory initializer/finalizer headers.
   set(_mem_init_finalizer_headers "")
   foreach (memory_init_finalizer_header ${Z3_MOD_MEMORY_INIT_FINALIZER_HEADERS})
@@ -143,8 +134,6 @@ macro(z3_add_component component_name)
     list(APPEND _mem_init_finalizer_headers
       "${_full_memory_init_finalizer_header_path}")
   endforeach()
-  unset(_full_memory_init_finalizer_header_path)
-
   # Using "object" libraries here means we have a convenient
   # name to refer to a component in CMake but we don't actually
   # create a static/library from them. This allows us to easily
@@ -152,7 +141,6 @@ macro(z3_add_component component_name)
   # on all platforms. Is this added flexibility worth the linking
   # overhead it adds?
   add_library(${component_name} OBJECT ${Z3_MOD_SOURCES} ${_list_generated_headers})
-  unset(_list_generated_headers)
   target_link_libraries(${component_name} PRIVATE z3_common)
   set_target_properties(${component_name} PROPERTIES
     Z3_IS_COMPONENT TRUE
@@ -197,7 +185,7 @@ macro(z3_add_component component_name)
     target_link_libraries(libz3 PRIVATE
       "$<BUILD_LOCAL_INTERFACE:${component_name}>")
   endif()
-endmacro()
+endfunction()
 
 function(z3_generate_registration target)
   if (NOT TARGET "${target}")

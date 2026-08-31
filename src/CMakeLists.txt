@@ -147,7 +147,13 @@ if (NOT MSVC)
   # conflicts (the z3 executable also has this OUTPUT_NAME) with
   # ``.ilk``, ``.pdb``, ``.lib`` and ``.exp`` files sharing the same
   # prefix.
-  set_target_properties(libz3 PROPERTIES OUTPUT_NAME z3)
+  if (BUILD_SHARED_LIBS)
+    set_target_properties(libz3 PROPERTIES OUTPUT_NAME z3)
+  else()
+    # Do not overwrite the shared build's library file when co-installed,
+    # and give pkg-config consumers an unambiguous `-l` name to link.
+    set_target_properties(libz3 PROPERTIES OUTPUT_NAME z3-static)
+  endif()
 elseif (WIN32 AND NOT BUILD_SHARED_LIBS)
   # Do not overwrite the shared build's import library when co-installed.
   set_target_properties(libz3 PROPERTIES OUTPUT_NAME libz3-static)

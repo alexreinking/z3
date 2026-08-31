@@ -8,6 +8,6 @@ Description: The Z3 Theorem Prover
 Version: @Z3_VERSION@
 
 Requires.private: @Z3_PKGCONFIG_REQUIRES_PRIVATE@
-Libs: -L${libdir} -l$<TARGET_FILE_BASE_NAME:libz3>
+Libs: -L${libdir} -lz3
 Libs.private: @Z3_PKGCONFIG_LIBS_PRIVATE@
 Cflags: -I${includedir}

@@ -10,6 +10,9 @@ on your platform. Example generators include "UNIX Makefiles" and "Visual Studio
 
 ## Getting started
 
+Building Z3 requires CMake 3.26 or newer. The installed CMake package remains
+usable by consumers running CMake 3.5 or newer.
+
 ### Fixing a polluted source tree
 
 If you have never used the python build system you can skip this step.
@@ -106,32 +109,6 @@ FetchContent_Declare(Z3
 )
 FetchContent_MakeAvailable(Z3)
 
-# Add the C++ API include directory for z3++.h
-if(TARGET libz3)
-    target_include_directories(libz3 INTERFACE
-        $<BUILD_INTERFACE:${z3_SOURCE_DIR}/src/api/c++>
-    )
-endif()
-```
-
-Once fetched, you can link the z3 library to your target:
-
-```cmake
-target_link_libraries(yourTarget PRIVATE libz3)
-```
-
-**Important notes for FetchContent approach**:
-- The target name is `libz3` (referring to the library target from `src/CMakeLists.txt`)
-- An additional include directory for `src/api/c++` is added to enable `#include "z3++.h"` in C++ code
-- Without the additional include directory, you would need `#include "c++/z3++.h"` instead
-
-**Recommended: Create an alias for consistency with system installs**:
-
-```cmake
-# Create an alias for consistency with system install
-if(NOT TARGET z3::libz3)
-    add_library(z3::libz3 ALIAS libz3)
-endif()
 target_link_libraries(yourTarget PRIVATE z3::libz3)
 ```
 
@@ -190,17 +167,6 @@ else()
     )
     FetchContent_MakeAvailable(Z3)
     
-    # Add the C++ API include directory for z3++.h
-    if(TARGET libz3)
-        target_include_directories(libz3 INTERFACE
-            $<BUILD_INTERFACE:${z3_SOURCE_DIR}/src/api/c++>
-        )
-    endif()
-    
-    # Create an alias to match the system install target name
-    if(NOT TARGET z3::libz3)
-        add_library(z3::libz3 ALIAS libz3)
-    endif()
 endif()
 
 # Now use Z3 consistently regardless of how it was found
@@ -218,7 +184,7 @@ target_link_libraries(yourTarget PRIVATE z3::libz3)
 
 - Use `z3::libz3` target instead of raw library names for better CMake integration
 - The target automatically provides the correct include directories, so no need for manual `target_include_directories`
-- When using FetchContent, an alias is created to ensure target name consistency
+- FetchContent and installed-package builds expose the same target name
 - Set `QUIET` in `find_package` to avoid error messages when Z3 isn't found
 
 
@@ -409,7 +375,7 @@ The following useful options can be passed to CMake whilst configuring.
 * ``CMAKE_INSTALL_API_BINDINGS_DOC`` - STRING. The path to install documentation for API bindings.
 * ``Python3_EXECUTABLE`` - STRING. The python executable to use during the build.
 * ``Z3_ENABLE_TRACING_FOR_NON_DEBUG`` - BOOL. If set to ``TRUE`` enable tracing in non-debug builds, if set to ``FALSE`` disable tracing in non-debug builds. Note in debug builds tracing is always enabled.
-* ``Z3_BUILD_LIBZ3_SHARED`` - BOOL. If set to ``TRUE`` build libz3 as a shared library otherwise build as a static library.
+* ``BUILD_SHARED_LIBS`` - BOOL. If set to ``TRUE`` (default) build libz3 as a shared library; otherwise build it as a static library. The historical ``Z3_BUILD_LIBZ3_SHARED`` spelling is still accepted for compatibility.
 * ``Z3_BUILD_LIBZ3_CORE`` - BOOL. If set to ``TRUE`` (default) build the core libz3 library. If set to ``FALSE``, skip building libz3 and look for a pre-installed library instead. This is useful when building only Python bindings on top of an already-installed libz3.
 * ``Z3_ENABLE_EXAMPLE_TARGETS`` - BOOL. If set to ``TRUE`` add the build targets for building the API examples.
 * ``Z3_USE_LIB_GMP`` - BOOL. If set to ``TRUE`` use the GNU multiple precision library. If set to ``FALSE`` use an internal implementation.
@@ -423,7 +389,7 @@ The following useful options can be passed to CMake whilst configuring.
 * ``Z3_INSTALL_JAVA_BINDINGS`` - BOOL. If set to ``TRUE`` and ``Z3_BUILD_JAVA_BINDINGS`` is ``TRUE`` then running the ``install`` target will install Z3's Java bindings.
 * ``Z3_JAVA_JAR_INSTALLDIR`` - STRING. The path to directory to install the Z3 Java ``.jar`` file. This path should be relative to ``CMAKE_INSTALL_PREFIX``.
 * ``Z3_JAVA_JNI_LIB_INSTALLDIRR`` - STRING. The path to directory to install the Z3 Java JNI bridge library. This path should be relative to ``CMAKE_INSTALL_PREFIX``.
-* ``Z3_BUILD_GO_BINDINGS`` - BOOL. If set to ``TRUE`` then Z3's Go bindings will be built. Requires Go 1.20+ and ``Z3_BUILD_LIBZ3_SHARED=ON``.
+* ``Z3_BUILD_GO_BINDINGS`` - BOOL. If set to ``TRUE`` then Z3's Go bindings will be built. Requires Go 1.20+ and ``BUILD_SHARED_LIBS=ON``.
 * ``Z3_BUILD_OCAML_BINDINGS`` - BOOL. If set to ``TRUE`` then Z3's OCaml bindings will be built.
 * ``Z3_BUILD_JULIA_BINDINGS`` - BOOL. If set to ``TRUE`` then Z3's Julia bindings will be built.
 * ``Z3_INSTALL_JULIA_BINDINGS`` - BOOL. If set to ``TRUE`` and ``Z3_BUILD_JULIA_BINDINGS`` is ``TRUE`` then running the ``install`` target will install Z3's Julia bindings.
@@ -463,6 +429,35 @@ cmake -DCMAKE_BUILD_TYPE=Release -DZ3_ENABLE_TRACING_FOR_NON_DEBUG=FALSE ../
 
 ```
 
+## Installing and selecting static or shared libz3
+
+Each build directory produces one library variant, selected with CMake's
+standard ``BUILD_SHARED_LIBS`` option. Static and shared builds can be installed
+to the same prefix without overwriting one another:
+
+```sh
+cmake -S . -B build-shared -DBUILD_SHARED_LIBS=ON
+cmake --build build-shared
+cmake --install build-shared --prefix /path/to/prefix
+
+cmake -S . -B build-static -DBUILD_SHARED_LIBS=OFF
+cmake --build build-static
+cmake --install build-static --prefix /path/to/prefix
+```
+
+Consumers always link to ``z3::libz3``. When both variants are installed, a
+consumer can select one with a package component:
+
+```cmake
+find_package(Z3 REQUIRED CONFIG COMPONENTS static) # or shared
+target_link_libraries(yourTarget PRIVATE z3::libz3)
+```
+
+For projects that cannot use components, ``Z3_SHARED_LIBS`` is a strict
+package-specific preference. Otherwise, the package follows the consumer's
+``BUILD_SHARED_LIBS`` setting when possible and falls back to the installed
+variant. With no preference, shared is selected when available.
+
 ## Z3 API Bindings
 
 Z3 exposes various language bindings for its API. Below are some notes on building
@@ -478,7 +473,7 @@ and the Python bindings together:
 ```
 mkdir build
 cd build
-cmake -DZ3_BUILD_PYTHON_BINDINGS=ON -DZ3_BUILD_LIBZ3_SHARED=ON ../
+cmake -DZ3_BUILD_PYTHON_BINDINGS=ON -DBUILD_SHARED_LIBS=ON ../
 make
 ```
 
@@ -492,7 +487,7 @@ libz3 is already installed on your system:
 # First, build and install libz3 (once)
 mkdir build-libz3
 cd build-libz3
-cmake -DZ3_BUILD_LIBZ3_SHARED=ON -DCMAKE_INSTALL_PREFIX=/path/to/prefix ../
+cmake -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=/path/to/prefix ../
 make
 make install
 
@@ -532,14 +527,14 @@ Go bindings can be built by setting ``Z3_BUILD_GO_BINDINGS=ON``. The Go bindings
 the Z3 C API, so you'll need:
 
 * Go 1.20 or later installed on your system
-* ``Z3_BUILD_LIBZ3_SHARED=ON`` (Go bindings require the shared library)
+* ``BUILD_SHARED_LIBS=ON`` (Go bindings require the shared library)
 
 Example:
 
 ```
 mkdir build
 cd build
-cmake -DZ3_BUILD_GO_BINDINGS=ON -DZ3_BUILD_LIBZ3_SHARED=ON ../
+cmake -DZ3_BUILD_GO_BINDINGS=ON -DBUILD_SHARED_LIBS=ON ../
 make
 ```
 
@@ -665,7 +660,7 @@ Build instructions:
 1. cd z3
 2. mkdir release
 3. cd release
-4. cmake3 -DZ3_BUILD_LIBZ3_SHARED=FALSE -DCMAKE_BUILD_TYPE=RelWithDebInfo -G "Unix Makefiles" ../
+4. cmake3 -DBUILD_SHARED_LIBS=FALSE -DCMAKE_BUILD_TYPE=RelWithDebInfo -G "Unix Makefiles" ../
 5. make
 6. make z3_tptp5
 7. cp examples/tptp_build_dir/z3_tptp5 ../../bin/z3_tptp

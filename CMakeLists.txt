@@ -577,30 +577,12 @@ if (Z3_BUILD_LIBZ3_CORE)
      FILE "${PROJECT_BINARY_DIR}/Z3-${Z3_LIBZ3_VARIANT}-targets.cmake"
   )
 else()
-  # When not building libz3, we need to find it
-  message(STATUS "Not building libz3, will look for pre-installed library")
-  find_library(Z3_LIBRARY NAMES z3 libz3
-    HINTS ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}
-    PATH_SUFFIXES lib lib64
-  )
-  if (NOT Z3_LIBRARY)
-    message(FATAL_ERROR "Could not find pre-installed libz3. Please ensure libz3 is installed or set Z3_BUILD_LIBZ3_CORE=ON")
-  endif()
-  message(STATUS "Found libz3: ${Z3_LIBRARY}")
-
-  # Create an imported target for the pre-installed libz3
-  add_library(libz3 UNKNOWN IMPORTED)
-  set_target_properties(libz3 PROPERTIES
-    IMPORTED_LOCATION "${Z3_LIBRARY}"
-  )
-  # Set include directories for the imported target
-  target_include_directories(libz3 INTERFACE
-    ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}
-  )
-endif()
-
-if (TARGET libz3 AND NOT TARGET z3::libz3)
-  add_library(z3::libz3 ALIAS libz3)
+  message(STATUS "Not building libz3; looking for the installed Z3 package")
+  # Keep variables set by find_package() from replacing the source tree's
+  # version variables. Imported targets are not scoped to variable blocks.
+  block(SCOPE_FOR VARIABLES)
+    find_package(Z3 ${Z3_VERSION} EXACT CONFIG REQUIRED COMPONENTS shared)
+  endblock()
 endif()
 
 ################################################################################
@@ -699,7 +681,6 @@ file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/z3.pc"
 # Create `Z3Config.cmake` and related files for install tree so clients can use
 # Z3 via CMake.
 ################################################################################
-# Only install targets if we built libz3
 if (Z3_BUILD_LIBZ3_CORE)
   install(EXPORT
     Z3_EXPORTED_TARGETS
@@ -740,30 +721,32 @@ unset(Z3_CXX_PACKAGE_INCLUDE_DIR)
 unset(AUTO_GEN_MSG)
 unset(CONFIG_FILE_TYPE)
 
-# Add install rule to install ${Z3_INSTALL_TREE_CMAKE_CONFIG_FILE}
-install(
-  FILES "${Z3_INSTALL_TREE_CMAKE_CONFIG_FILE}"
-  DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
-)
+if (Z3_BUILD_LIBZ3_CORE)
+  # Add install rule to install ${Z3_INSTALL_TREE_CMAKE_CONFIG_FILE}
+  install(
+    FILES "${Z3_INSTALL_TREE_CMAKE_CONFIG_FILE}"
+    DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
+  )
 
-# Add install rule to install ${PROJECT_BINARY_DIR}/Z3ConfigVersion.cmake
-install(
-  FILES "${PROJECT_BINARY_DIR}/Z3ConfigVersion.cmake"
-  DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
-)
+  # Add install rule to install ${PROJECT_BINARY_DIR}/Z3ConfigVersion.cmake
+  install(
+    FILES "${PROJECT_BINARY_DIR}/Z3ConfigVersion.cmake"
+    DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
+  )
 
-# Add install rule to install ${PROJECT_BINARY_DIR}/z3.pc
-install(
-  FILES "${PROJECT_BINARY_DIR}/z3.pc"
-  DESTINATION "${CMAKE_INSTALL_PKGCONFIGDIR}"
-)
+  # Add install rule to install ${PROJECT_BINARY_DIR}/z3.pc
+  install(
+    FILES "${PROJECT_BINARY_DIR}/z3.pc"
+    DESTINATION "${CMAKE_INSTALL_PKGCONFIGDIR}"
+  )
+endif()
 
 ################################################################################
 # Examples
 ################################################################################
 cmake_dependent_option(Z3_ENABLE_EXAMPLE_TARGETS
     "Build Z3 api examples" ON
-    "PROJECT_IS_TOP_LEVEL" OFF)
+    "PROJECT_IS_TOP_LEVEL;Z3_BUILD_LIBZ3_CORE" OFF)
 if (Z3_ENABLE_EXAMPLE_TARGETS)
   add_subdirectory(examples)
 endif()

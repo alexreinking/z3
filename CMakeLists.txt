@@ -96,6 +96,7 @@ if (DEFINED Z3_BUILD_LIBZ3_SHARED)
 endif()
 option(BUILD_SHARED_LIBS "Build libraries as shared libraries" ON)
 option(Z3_BUILD_LIBZ3_CORE "Build the core libz3 library" ON)
+option(Z3_BUILD_PYTHON_BINDINGS "Build Python bindings for Z3" OFF)
 option(Z3_BUILD_LIBZ3_MSVC_STATIC
   "Build libz3 as a statically-linked runtime library" OFF)
 
@@ -603,21 +604,10 @@ else()
 endif()
 
 ################################################################################
-# Z3 API bindings
+# Standalone Z3 Python bindings
 ################################################################################
-option(Z3_BUILD_PYTHON_BINDINGS "Build Python bindings for Z3" OFF)
-if (Z3_BUILD_PYTHON_BINDINGS)
-  # Validate configuration for Python bindings
-  if (Z3_BUILD_LIBZ3_CORE)
-    # Building libz3 together with Python bindings
-    if (NOT BUILD_SHARED_LIBS)
-      message(FATAL_ERROR "The python bindings will not work with a static libz3. "
-              "You either need to disable Z3_BUILD_PYTHON_BINDINGS or enable BUILD_SHARED_LIBS")
-    endif()
-  else()
-    # Using pre-installed libz3 for Python bindings
-    message(STATUS "Building Python bindings with pre-installed libz3")
-  endif()
+if (Z3_BUILD_PYTHON_BINDINGS AND NOT Z3_BUILD_LIBZ3_CORE)
+  message(STATUS "Building Python bindings with pre-installed libz3")
   add_subdirectory(src/api/python)
 endif()
 

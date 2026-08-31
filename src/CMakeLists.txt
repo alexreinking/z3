@@ -1,86 +1,36 @@
 cmake_dependent_option(Z3_BUILD_EXECUTABLE
     "Build the z3 executable" ON
     "PROJECT_IS_TOP_LEVEL;Z3_BUILD_LIBZ3_CORE" OFF)
+cmake_dependent_option(Z3_BUILD_TEST_EXECUTABLES
+    "Build test executables" ON
+    "PROJECT_IS_TOP_LEVEL;Z3_BUILD_LIBZ3_CORE" OFF)
 
 ################################################################################
-# Traverse directories each adding a Z3 component
+# Traverse direct children. Each directory adds its own direct children.
 ################################################################################
-# I'm duplicating the order in ``mk_project.py`` for now to help us keep
-# the build systems in sync.
-#
-# The components in these directory explicitly declare their dependencies so
-# you may be able to re-order some of these directories but an error will be
-# raised if you try to declare a component is dependent on another component
-# that has not yet been declared.
-add_subdirectory(util)
-add_subdirectory(math/polynomial)
-add_subdirectory(math/dd)
-add_subdirectory(math/hilbert)
-add_subdirectory(math/simplex)
-add_subdirectory(math/interval)
-add_subdirectory(math/realclosure)
-add_subdirectory(math/subpaving)
-add_subdirectory(ast)
-add_subdirectory(params)
-add_subdirectory(ast/rewriter)
-add_subdirectory(ast/rewriter/bit_blaster)
-add_subdirectory(ast/normal_forms)
-add_subdirectory(ast/macros)
-add_subdirectory(model)
-add_subdirectory(ast/euf)
-add_subdirectory(ast/converters)
-add_subdirectory(ast/substitution)
-add_subdirectory(ast/simplifiers)
-add_subdirectory(tactic)
-add_subdirectory(qe/mbp)
-add_subdirectory(qe/lite)
-add_subdirectory(parsers/util)
-add_subdirectory(math/grobner)
-add_subdirectory(sat)
-add_subdirectory(nlsat)
-add_subdirectory(tactic/core)
-add_subdirectory(math/subpaving/tactic)
-add_subdirectory(tactic/aig)
-add_subdirectory(tactic/arith)
-add_subdirectory(solver)
-add_subdirectory(cmd_context)
-add_subdirectory(cmd_context/extra_cmds)
-add_subdirectory(parsers/smt2)
-add_subdirectory(solver/assertions)
-add_subdirectory(ast/pattern)
-add_subdirectory(math/lp)
-add_subdirectory(ast/sls)
-add_subdirectory(sat/smt)
-add_subdirectory(sat/tactic)
-add_subdirectory(nlsat/tactic)
 add_subdirectory(ackermannization)
-add_subdirectory(ast/proofs)
-add_subdirectory(ast/fpa)
-add_subdirectory(smt/proto_model)
-add_subdirectory(smt)
-add_subdirectory(tactic/bv)
-add_subdirectory(smt/tactic)
-add_subdirectory(tactic/sls)
-add_subdirectory(qe)
-add_subdirectory(muz/base)
-add_subdirectory(muz/dataflow)
-add_subdirectory(muz/transforms)
-add_subdirectory(muz/rel)
-add_subdirectory(muz/clp)
-add_subdirectory(muz/tab)
-add_subdirectory(muz/bmc)
-add_subdirectory(muz/ddnf)
-add_subdirectory(muz/spacer)
-add_subdirectory(muz/fp)
-add_subdirectory(tactic/ufbv)
-add_subdirectory(sat/sat_solver)
-add_subdirectory(tactic/smtlogics)
-add_subdirectory(tactic/fpa)
-add_subdirectory(tactic/fd_solver)
-add_subdirectory(tactic/portfolio)
-add_subdirectory(opt)
 add_subdirectory(api)
-add_subdirectory(api/dll)
+add_subdirectory(ast)
+add_subdirectory(cmd_context)
+add_subdirectory(math)
+add_subdirectory(model)
+add_subdirectory(muz)
+add_subdirectory(nlsat)
+add_subdirectory(opt)
+add_subdirectory(params)
+add_subdirectory(parsers)
+add_subdirectory(qe)
+add_subdirectory(sat)
+if (Z3_BUILD_EXECUTABLE)
+  add_subdirectory(shell)
+endif()
+add_subdirectory(smt)
+add_subdirectory(solver)
+add_subdirectory(tactic)
+if (Z3_BUILD_TEST_EXECUTABLES)
+  add_subdirectory(test)
+endif()
+add_subdirectory(util)
 ################################################################################
 # libz3
 ################################################################################
@@ -191,82 +141,3 @@ if (MSVC)
   )
   target_sources(libz3 PRIVATE "${dll_module_exports_file}")
 endif()
-
-if (Z3_BUILD_EXECUTABLE)
-    add_subdirectory(shell)
-endif()
-
-################################################################################
-# z3-test
-################################################################################
-
-cmake_dependent_option(Z3_BUILD_TEST_EXECUTABLES
-    "Build test executables" ON
-    "PROJECT_IS_TOP_LEVEL;Z3_BUILD_LIBZ3_CORE" OFF)
-
-
-if (Z3_BUILD_TEST_EXECUTABLES)
-    add_subdirectory(test)
-endif()
-
-################################################################################
-# .NET bindings
-################################################################################
-option(Z3_BUILD_DOTNET_BINDINGS "Build .NET bindings for Z3" OFF)
-if (Z3_BUILD_DOTNET_BINDINGS)
-  if (NOT BUILD_SHARED_LIBS)
-    message(FATAL_ERROR "The .NET bindings will not work with a static libz3. "
-      "You either need to disable Z3_BUILD_DOTNET_BINDINGS or enable BUILD_SHARED_LIBS")
-  endif()
-  add_subdirectory(api/dotnet)
-endif()
-
-################################################################################
-# Java bindings
-################################################################################
-option(Z3_BUILD_JAVA_BINDINGS "Build Java bindings for Z3" OFF)
-if (Z3_BUILD_JAVA_BINDINGS)
-  if (NOT BUILD_SHARED_LIBS)
-    message(FATAL_ERROR "The Java bindings will not work with a static libz3. "
-      "You either need to disable Z3_BUILD_JAVA_BINDINGS or enable BUILD_SHARED_LIBS")
-  endif()
-  add_subdirectory(api/java)
-endif()
-
-################################################################################
-# OCaml bindings
-################################################################################
-option(Z3_BUILD_OCAML_BINDINGS "Build OCaml bindings for Z3" OFF)
-if (Z3_BUILD_OCAML_BINDINGS)
-  if (NOT BUILD_SHARED_LIBS)
-    message(FATAL_ERROR "The OCaml bindings will not work with a static libz3. "
-      "You either need to disable Z3_BUILD_OCAML_BINDINGS or enable BUILD_SHARED_LIBS")
-  endif()
-  add_subdirectory(api/ml)
-endif()
-
-################################################################################
-# Julia bindings
-################################################################################
-option(Z3_BUILD_JULIA_BINDINGS "Build Julia bindings for Z3" OFF)
-if (Z3_BUILD_JULIA_BINDINGS)
-  if (NOT BUILD_SHARED_LIBS)
-    message(FATAL_ERROR "The Julia bindings will not work with a static libz3."
-      "You either need to disable Z3_BUILD_JULIA_BINDINGS or enable BUILD_SHARED_LIBS")
-  endif()
-  add_subdirectory(api/julia)
-endif()
-
-################################################################################
-# Go bindings
-################################################################################
-option(Z3_BUILD_GO_BINDINGS "Build Go bindings for Z3" OFF)
-if (Z3_BUILD_GO_BINDINGS)
-  if (NOT BUILD_SHARED_LIBS)
-    message(FATAL_ERROR "The Go bindings will not work with a static libz3. "
-      "You either need to disable Z3_BUILD_GO_BINDINGS or enable BUILD_SHARED_LIBS")
-  endif()
-  add_subdirectory(api/go)
-endif()
-
-# TODO: Implement support for other bindigns

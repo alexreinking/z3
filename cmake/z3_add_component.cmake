@@ -1,6 +1,3 @@
-define_property(TARGET PROPERTY Z3_IS_COMPONENT
-                BRIEF_DOCS "Whether this target is a Z3 component"
-                FULL_DOCS "Marks targets created by z3_add_component")
 define_property(TARGET PROPERTY INTERFACE_Z3_REGISTER_MODULE_HEADERS
                 BRIEF_DOCS "Headers containing Z3 module registrations"
                 FULL_DOCS "Headers scanned to generate parameter registration code")
@@ -35,11 +32,9 @@ define_property(TARGET PROPERTY INTERFACE_Z3_MEM_INIT_FINALIZER_HEADERS
 # build time.
 #
 # The optional ``COMPONENT_DEPENDENCIES`` keyword should be followed by a list of
-# components that ``component_name`` should depend on. The components listed here
-# must have already been declared using ``z3_add_component()``. Listing components
-# here causes them to be built before ``component_name``. It also currently causes
-# the include directories used by the transistive closure of the dependencies
-# to be added to the list of include directories used to build ``component_name``.
+# components that ``component_name`` should depend on. Listing components here
+# causes them to be built before ``component_name`` and propagates their usage
+# requirements.
 #
 # The optional ``PYG_FILES`` keyword should be followed by a list of one or
 # more ``<NAME>.pyg`` files that should used to be generate
@@ -143,7 +138,6 @@ function(z3_add_component component_name)
   add_library(${component_name} OBJECT ${Z3_MOD_SOURCES} ${_list_generated_headers})
   target_link_libraries(${component_name} PRIVATE z3_common)
   set_target_properties(${component_name} PROPERTIES
-    Z3_IS_COMPONENT TRUE
     INTERFACE_Z3_REGISTER_MODULE_HEADERS "${_register_module_headers}"
     INTERFACE_Z3_TACTIC_HEADERS "${_tactic_headers}"
     INTERFACE_Z3_MEM_INIT_FINALIZER_HEADERS "${_mem_init_finalizer_headers}"
@@ -153,23 +147,11 @@ function(z3_add_component component_name)
     POSITION_INDEPENDENT_CODE ON
     # Symbol visibility
     CXX_VISIBILITY_PRESET hidden
+    LINK_LIBRARIES_ONLY_TARGETS ON
     VISIBILITY_INLINES_HIDDEN ON)
 
   # OBJECT libraries support ordinary usage requirements and dependency
   # propagation.  Their object files are added separately to final binaries.
-  foreach (dependency ${Z3_MOD_COMPONENT_DEPENDENCIES})
-    if (NOT (TARGET ${dependency}))
-      message(FATAL_ERROR "Component \"${component_name}\" depends on a non existent component \"${dependency}\"")
-    endif()
-    get_target_property(_dependency_type ${dependency} TYPE)
-    if (NOT _dependency_type STREQUAL "OBJECT_LIBRARY")
-      message(FATAL_ERROR "Component \"${component_name}\" depends on non-object target \"${dependency}\"")
-    endif()
-    get_target_property(_is_component ${dependency} Z3_IS_COMPONENT)
-    if (NOT _is_component)
-      message(FATAL_ERROR "Component \"${component_name}\" depends on non-component target \"${dependency}\"")
-    endif()
-  endforeach()
   if (Z3_MOD_COMPONENT_DEPENDENCIES)
     target_link_libraries(${component_name} PRIVATE
       ${Z3_MOD_COMPONENT_DEPENDENCIES})

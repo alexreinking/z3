@@ -7,7 +7,7 @@ If you are not familiar with Z3, you can start [here](https://github.com/Z3Prove
 
 Pre-built binaries for stable and nightly releases are available [here](https://github.com/Z3Prover/z3/releases).
 
-Z3 can be built using [Visual Studio][1], a [Makefile][2], using [CMake][3],
+Z3 can be built using [CMake][1], a [Makefile][2], using [Visual Studio][3],
 using [vcpkg][4], or using [Bazel][5].
 It provides [bindings for several programming languages][6].
 
@@ -50,12 +50,49 @@ See the [release notes](RELEASE_NOTES.md) for notes on various stable releases o
 | --------------|----------------------|-------------------------|
 | [![Issue Backlog Processor](https://github.com/Z3Prover/z3/actions/workflows/issue-backlog-processor.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/issue-backlog-processor.lock.yml) | [![Memory Safety Report](https://github.com/Z3Prover/z3/actions/workflows/memory-safety-report.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/memory-safety-report.lock.yml) | [![SMTLIB Benchmark Finder](https://github.com/Z3Prover/z3/actions/workflows/smtlib-benchmark-finder.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/smtlib-benchmark-finder.lock.yml) |
 
-[1]: #building-z3-on-windows-using-visual-studio-command-prompt
+[1]: #building-z3-using-cmake
 [2]: #building-z3-using-make-and-gccclang
-[3]: #building-z3-using-cmake
+[3]: #building-z3-on-windows-using-visual-studio-command-prompt
 [4]: #building-z3-using-vcpkg
 [5]: #building-z3-using-bazel
 [6]: #z3-bindings
+
+## Building Z3 using CMake
+
+Z3's CMake-based build system is recommended for most build tasks, including
+building OCaml bindings. It requires CMake 3.30 or newer. The shortest
+portable command-line workflow is:
+
+```bash
+cmake -S . -B build
+cmake --build build --parallel
+```
+
+To install Z3 (optionally to a custom prefix):
+
+```bash
+cmake --install build --prefix /path/to/prefix
+```
+
+On Windows, the command-line workflow above configures a multi-configuration
+Visual Studio generator by default, which builds a `Debug` binary unless you
+pass a configuration at build time:
+
+```bash
+cmake --build build --config Release
+```
+
+Alternatively, run the same single-configuration workflow shown above from a
+"Developer Command Prompt for VS" using Ninja:
+
+```bash
+cmake -S . -B build -G Ninja
+cmake --build build --parallel
+```
+
+See [README-CMake.md](README-CMake.md) for details on choosing a generator or
+compiler, build types, static vs. shared libraries, language bindings, and
+packaging.
 
 ## Building Z3 on Windows using Visual Studio Command Prompt
 
@@ -134,12 +171,6 @@ sudo make uninstall
 ```
 
 To clean Z3, you can delete the build directory and run the ``mk_make.py`` script again.
-
-## Building Z3 using CMake
-
-Z3 has a build system using CMake. Read the [README-CMake.md](README-CMake.md)
-file for details. It is recommended for most build tasks, including building
-OCaml bindings.
 
 ## Building Z3 using vcpkg
 

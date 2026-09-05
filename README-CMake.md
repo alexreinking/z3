@@ -115,6 +115,12 @@ Visual Studio 2019 and newer can also open Z3's source directory directly as a
 CMake project. Regardless of the interface or generator, use the repository
 root—not `src`—as the source directory.
 
+On Windows, CMake defaults to a Visual Studio generator, which is
+multi-configuration: `cmake --build` builds a `Debug` binary unless you pass a
+configuration explicitly, e.g. `cmake --build build --config Release`. To
+instead use the single-configuration workflow shown above, run it from a
+"Developer Command Prompt for VS" (so `cl.exe` is on `PATH`) with `-G Ninja`.
+
 ### Choosing a compiler or target architecture
 
 Set the `CC` and `CXX` environment variables when first configuring a build
@@ -180,8 +186,10 @@ also accepts custom build types; the Z3-specific `Z3DEBUG` and
 listed above.
 
 For multi-configuration generators (e.g. Visual Studio) you don't set the build
-type when invoking CMake and instead set the build type within Visual Studio
-itself.
+type when invoking CMake. Instead, select it within Visual Studio itself, or
+pass `--config <build_type>` to `cmake --build` (and `cmake --install`) when
+building from the command line. Without `--config`, `cmake --build` defaults
+to `Debug`.
 
 ## MSVC Security Features
 

@@ -80,7 +80,7 @@ jobs:
           echo "OCAML_VERSION: $(ocamlc -version)"
           echo "OCAMLLIB: $OCAMLLIB"
           cmake -S . -B build-x64 -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_PYTHON_BINDINGS=ON -DZ3_BUILD_OCAML_BINDINGS=ON
-          cmake --build build-x64 --parallel
+          cmake --build build-x64 --parallel $(nproc)
 
       - name: Generate Documentation (from doc directory)
         working-directory: doc

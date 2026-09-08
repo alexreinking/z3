@@ -64,7 +64,7 @@ jobs:
 
       - name: Build Z3
         if: steps.cache-z3.outputs.cache-hit != 'true'
-        run: cmake --build build --parallel
+        run: cmake --build build --parallel $(nproc)
 
       - name: Display build info
         run: |

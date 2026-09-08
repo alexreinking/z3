@@ -216,7 +216,7 @@ jobs:
         run: |
           cd doc
           sudo apt-get install -y doxygen graphviz
-          python mk_api_doc.py --z3py-package-path=../build/python/z3
+          python mk_api_doc.py --no-z3py
           cd ..
 
   ubuntu-ocaml-static:
@@ -285,7 +285,7 @@ jobs:
         run: |
           cd doc
           sudo apt-get install -y doxygen graphviz
-          python mk_api_doc.py --z3py-package-path=../build/python/z3
+          python mk_api_doc.py --no-z3py
           cd ..
 
   # ============================================================================
@@ -569,10 +569,10 @@ jobs:
           cmake --build build --target shell --target z3java \
             --target build_z3_dotnet_bindings --target c_example \
             --target cpp_example --target test-z3 --parallel "$JOBS"
-          cd build
-          ./cpp_example
-          ./c_example
-          cd ..
+          # c_example/cpp_example are ExternalProject_Add targets, so they
+          # build into their own nested binary dirs rather than build/ root.
+          build/examples/cpp_example_build_dir/cpp_example
+          build/examples/c_example_build_dir/c_example
 
       - name: Clone z3test
         run: git clone https://github.com/z3prover/z3test z3test

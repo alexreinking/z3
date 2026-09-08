@@ -257,6 +257,11 @@ def mk_build_dir():
         cmd.append(' -DZ3_USE_LIB_GMP=OFF')
         cmd.append(' -DBUILD_SHARED_LIBS=ON')
         cmd.append(' -DCMAKE_BUILD_TYPE=RelWithDebInfo')
+        # mk_nuget_task.py expects libz3.{so,dylib} directly under bin/, matching
+        # the flat layout the legacy dist scripts always produced. Overriding
+        # CMAKE_INSTALL_LIBDIR (scoped to this throwaway packaging build tree
+        # only) installs it there directly, with no post-install copying needed.
+        cmd.append(' -DCMAKE_INSTALL_LIBDIR=bin')
         cmd.append(' -DCMAKE_INSTALL_PREFIX=' + get_build_dist_path())
         cmd.append('\n')
         cmds.append("".join(cmd))
@@ -321,30 +326,22 @@ def cp_license():
     mk_dir(path)
     shutil.copy("LICENSE.txt", path)
 
-# CMake's GNUInstallDirs layout installs the shared library under lib/ and
-# (when enabled) the Java JNI library under bin/java/, but mk_nuget_task.py
-# expects to find libz3.{so,dylib} directly under bin/ (matching the flat
-# layout the legacy Windows/Unix dist scripts always produced). Flatten the
-# install tree to match, mirroring mk_win_dist.py's cp_into_bin().
+# The shared library already installs directly under bin/ (CMAKE_INSTALL_LIBDIR
+# is overridden to "bin" in mk_build_dir()). The Java JNI library, when enabled,
+# still lands one level down at bin/java/ (Z3_JAVA_JNI_LIB_INSTALLDIR), so flatten
+# that to match the flat layout mk_nuget_task.py expects, mirroring mk_win_dist.py's
+# cp_into_bin().
 def cp_into_bin():
+    if not JAVA_ENABLED:
+        return
     if is_verbose():
-        print("copy lib")
-    dist_path = get_build_dist_path()
-    lib_dir = os.path.join(dist_path, "lib")
-    bin_dir = os.path.join(dist_path, "bin")
-    ext = "dylib" if platform.system() == "Darwin" else "so"
-    src = os.path.join(lib_dir, "libz3.%s" % ext)
-    if os.path.exists(src):
-        mk_dir(bin_dir)
-        shutil.copyfile(os.path.realpath(src), os.path.join(bin_dir, "libz3.%s" % ext))
-    if os.path.exists(lib_dir):
-        shutil.rmtree(lib_dir)
-    if JAVA_ENABLED:
-        java_dir = os.path.join(bin_dir, "java")
-        if os.path.exists(java_dir):
-            for file in os.listdir(java_dir):
-                shutil.copy2(os.path.join(java_dir, file), os.path.join(bin_dir, file))
-            shutil.rmtree(java_dir)
+        print("copy java")
+    bin_dir = os.path.join(get_build_dist_path(), "bin")
+    java_dir = os.path.join(bin_dir, "java")
+    if os.path.exists(java_dir):
+        for file in os.listdir(java_dir):
+            shutil.copy2(os.path.join(java_dir, file), os.path.join(bin_dir, file))
+        shutil.rmtree(java_dir)
 
 # Entry point
 def main():
